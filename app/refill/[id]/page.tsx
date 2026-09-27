@@ -23,7 +23,7 @@ export default async function RefillPage({ params }: { params: { id: string } })
   return (
     <>
       <p className="muted" style={{ marginBottom: 12 }}>
-        <a href="/">← Work queue</a>
+        <a href="/dashboard">← Work queue</a>
       </p>
 
       <div className="panel">

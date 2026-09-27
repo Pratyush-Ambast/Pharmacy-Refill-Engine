@@ -1,6 +1,6 @@
-// Every state change goes through here: append the event FIRST,
-// then update current state. The events table is append-only —
-// it IS the audit trail, the observability log, and the UI timeline.
+// Centralized, race-safe state transition helper.
+// The compare-and-set UPDATE prevents cron/system work from changing a refill
+// between validation and persistence. Every successful transition gets an audit event.
 import { getSql } from "./client";
 
 export async function recordTransition(
@@ -12,12 +12,21 @@ export async function recordTransition(
   payload: any = null
 ): Promise<void> {
   const sql = getSql();
-  await sql`
+  const rows = await sql`
+    WITH updated AS (
+      UPDATE refills
+      SET status = ${to}, state_changed_at = now()
+      WHERE id = ${refillId}
+        AND (${from}::text IS NULL OR status = ${from})
+      RETURNING id
+    )
     INSERT INTO events (refill_id, from_state, to_state, actor, reason, payload)
-    VALUES (${refillId}, ${from}, ${to}, ${actor}, ${reason}, ${payload})
+    SELECT id, ${from}, ${to}, ${actor}, ${reason}, ${payload}
+    FROM updated
+    RETURNING id
   `;
-  await sql`
-    UPDATE refills SET status = ${to}, state_changed_at = now()
-    WHERE id = ${refillId}
-  `;
+
+  if (rows.length === 0) {
+    throw new Error(`Concurrent state change: refill ${refillId} is no longer in ${from ?? "the expected state"}. Refresh and try again.`);
+  }
 }

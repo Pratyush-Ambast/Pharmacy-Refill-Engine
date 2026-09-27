@@ -1,4 +1,4 @@
-// GET /api/seed         — create tables + load demo data (idempotent)
+// GET /api/seed         — create tables + load demo data once
 // GET /api/seed?force=1 — wipe and reseed (demo reset button)
 // One click prepares the entire demo environment on a fresh deploy.
 import { NextResponse } from "next/server";

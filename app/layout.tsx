@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" style={{ color: "#fff" }}>Refill<span>Engine</span></Link>
           </div>
           <nav>
-            <Link href="/">Work queue</Link>
+            <Link href="/dashboard">Work queue</Link>
             <RoleSwitcher />
           </nav>
         </header>
