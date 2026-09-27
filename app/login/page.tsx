@@ -1,39 +1,4 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-export default function LoginPage() {
-  const router = useRouter();
-  const [role, setRole] = useState("staff");
-
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("role");
-    if (requested === "provider" || requested === "staff") setRole(requested);
-  }, []);
-
-  function enter() {
-    localStorage.setItem("demo-role", role);
-    router.push("/dashboard");
-  }
-
-  return (
-    <main className="login-shell">
-      <div className="login-card">
-        <div className="eyebrow">SECURE DEMO ACCESS</div>
-        <h1>Choose your workspace</h1>
-        <p className="login-subtitle">This hackathon demo uses role-based access to demonstrate least-privilege workflow boundaries.</p>
-        <div className="role-cards">
-          <button className={`role-card ${role === "staff" ? "selected" : ""}`} onClick={() => setRole("staff")}>
-            <span className="role-icon">S</span><span><b>Staff</b><small>Coordinate operational blockers, information, insurance and routing.</small></span>
-          </button>
-          <button className={`role-card ${role === "provider" ? "selected" : ""}`} onClick={() => setRole("provider")}>
-            <span className="role-icon">P</span><span><b>Provider</b><small>Review clinical context and authorize or decline refill decisions.</small></span>
-          </button>
-        </div>
-        <button className="btn primary full" onClick={enter}>Continue as {role === "staff" ? "Staff" : "Provider"} →</button>
-        <div className="login-security"><b>Security boundary</b><span>Role permissions are checked again on the server. The browser selection is never trusted as authorization.</span></div>
-      </div>
-    </main>
-  );
-}
+export default function LoginPage(){const [email,setEmail]=useState("staff@demo.local"),[password,setPassword]=useState("StaffDemo!2026"),[error,setError]=useState(""),[busy,setBusy]=useState(false);const router=useRouter();async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError("");const r=await fetch("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok){setError(d.error||"Login failed");setBusy(false);return;}router.push("/");router.refresh();}return <main className="login-shell"><div className="login-card"><div className="eyebrow">REFILL ENGINE · SECURE WORKSPACE</div><h1>Close the refill gap.</h1><p className="muted large">A coordination layer for physician groups that turns stuck prescription refills into visible, owned workflows.</p><form onSubmit={submit} className="login-form"><label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" required/></label><label>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" required/></label><button disabled={busy}>{busy?"Signing in…":"Sign in securely"}</button>{error&&<div className="error-box">{error}</div>}</form><div className="demo-credentials"><b>Hackathon demo accounts</b><br/>Staff: <code>staff@demo.local</code> / <code>StaffDemo!2026</code><br/>Provider: <code>provider@demo.local</code> / <code>ProviderDemo!2026</code></div></div></main>}

@@ -112,9 +112,9 @@ function ruleBasedClassify(raw: string): Classification {
     blocker,
     confidence: Number(confidence.toFixed(2)),
     entities: {
-      patient_name: nameMatch?.[1] ?? null,
-      medication: medMatch?.[1] ?? null,
-      pharmacy: null,
+      patient_name: nameMatch?.[1],
+      medication: medMatch?.[1],
+      pharmacy: undefined,
       notes: raw.slice(0, 200),
     },
     suggested_action:

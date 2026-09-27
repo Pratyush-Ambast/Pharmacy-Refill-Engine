@@ -1,26 +1,2 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-
-export default function RoleSwitcher() {
-  const pathname = usePathname();
-  const [role, setRole] = useState("staff");
-
-  useEffect(() => setRole(localStorage.getItem("demo-role") || "staff"), []);
-
-  if (pathname === "/" || pathname === "/login") {
-    return <Link className="header-login" href="/login">Staff / Provider Login</Link>;
-  }
-
-  return (
-    <label className="role-switch">
-      Workspace:
-      <select value={role} onChange={(e) => { setRole(e.target.value); localStorage.setItem("demo-role", e.target.value); window.location.reload(); }}>
-        <option value="staff">Staff</option>
-        <option value="provider">Provider</option>
-      </select>
-    </label>
-  );
-}
+"use client"; import {useRouter} from "next/navigation";
+export default function RoleSwitcher({user}:{user:{name:string;role:string}}){const router=useRouter();async function logout(){await fetch("/api/auth/logout",{method:"POST"});router.push("/login");router.refresh();}return <div className="user-menu"><span>{user.name} · <b>{user.role}</b></span><button className="secondary small" onClick={logout}>Log out</button></div>}
