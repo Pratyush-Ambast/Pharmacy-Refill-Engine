@@ -1,4 +1,29 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-export default function LoginPage(){const [email,setEmail]=useState("staff@demo.local"),[password,setPassword]=useState("StaffDemo!2026"),[error,setError]=useState(""),[busy,setBusy]=useState(false);const router=useRouter();async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError("");const r=await fetch("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok){setError(d.error||"Login failed");setBusy(false);return;}router.push("/");router.refresh();}return <main className="login-shell"><div className="login-card"><div className="eyebrow">REFILL ENGINE · SECURE WORKSPACE</div><h1>Close the refill gap.</h1><p className="muted large">A coordination layer for physician groups that turns stuck prescription refills into visible, owned workflows.</p><form onSubmit={submit} className="login-form"><label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" required/></label><label>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" required/></label><button disabled={busy}>{busy?"Signing in…":"Sign in securely"}</button>{error&&<div className="error-box">{error}</div>}</form><div className="demo-credentials"><b>Hackathon demo accounts</b><br/>Staff: <code>staff@demo.local</code> / <code>StaffDemo!2026</code><br/>Provider: <code>provider@demo.local</code> / <code>ProviderDemo!2026</code></div></div></main>}
+
+const accounts = {
+  staff: { label: "Staff", email: "staff@demo.local", password: "StaffDemo!2026", description: "Manage intake, blockers, patient follow-up and refill operations." },
+  provider: { label: "Provider", email: "provider@demo.local", password: "ProviderDemo!2026", description: "Review clinical cases and make authorized prescription decisions." }
+};
+
+export default function LoginPage() {
+  const [role, setRole] = useState<"staff" | "provider">("staff");
+  const [email, setEmail] = useState(accounts.staff.email);
+  const [password, setPassword] = useState(accounts.staff.password);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const choose = (next: "staff" | "provider") => { setRole(next); setEmail(accounts[next].email); setPassword(accounts[next].password); setError(""); };
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const d = await r.json();
+      if (!r.ok) { setError(d.error || "Login failed"); setBusy(false); return; }
+      router.replace("/"); router.refresh();
+    } catch { setError("Could not reach the authentication service."); setBusy(false); }
+  }
+  return <main className="auth-page"><div className="auth-back"><Link href="/">← Back to RefillEngine</Link></div><div className="auth-layout"><div className="auth-copy"><div className="eyebrow">SECURE WORKSPACE</div><h1>Welcome back.</h1><p>Choose your workspace and continue managing prescription refill requests with clear ownership, guardrails and auditability.</p><div className="auth-points"><span>✓ Server-side role permissions</span><span>✓ Protected session cookies</span><span>✓ Full workflow audit trail</span></div></div><div className="login-card"><div className="eyebrow">SIGN IN</div><h2>Choose your workspace</h2><div className="role-cards">{(["staff", "provider"] as const).map(r => <button key={r} type="button" className={`role-card ${role === r ? "selected" : ""}`} onClick={() => choose(r)}><span className="role-icon">{r === "staff" ? "S" : "P"}</span><span><b>{accounts[r].label}</b><small>{accounts[r].description}</small></span></button>)}</div><form onSubmit={submit} className="login-form"><label>Email<input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="username" required /></label><label>Password<input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" required /></label><button className="primary-submit" disabled={busy}>{busy ? "Signing in…" : `Sign in as ${accounts[role].label}`}</button>{error && <div className="error-box">{error}</div>}</form><div className="demo-credentials"><b>Hackathon demo</b><br />Credentials are prefilled for the selected role. In production, accounts would be provisioned through the organization’s identity system.</div></div></div></main>;
+}

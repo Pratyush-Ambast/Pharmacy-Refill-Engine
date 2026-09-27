@@ -31,7 +31,7 @@ Intake (fax text / portal msg / eRx payload)
    → Staff queue UI → routes / clears blockers
    → Provider decision screen → approve/decline (role-guarded)
    → eRx adapter (mock Surescripts) → SENT_TO_PHARMACY
-   → Vercel Cron /api/cron/verify every 5 min
+   → Vercel Cron /api/cron/verify once per day on the Hobby plan
         → pharmacy fill confirmed → FILLED (+ SMS to patient)
         → stale states → auto-ESCALATED (+ SMS)
    → events table = timeline / observability / audit
@@ -62,7 +62,7 @@ npm run dev
    **pooled** connection string.
 3. **Vercel**: Import repo → Settings → Environment Variables → add
    `DATABASE_URL` (+ optional `ANTHROPIC_API_KEY`, Twilio vars, `CRON_SECRET`).
-4. Deploy. `vercel.json` already registers the 5-minute verification cron.
+4. Deploy. `vercel.json` registers a Hobby-compatible daily verification cron.
 5. Visit `https://<your-app>.vercel.app/api/seed` once, then open the app.
 
 No servers anywhere: frontend + API + cron are Vercel Functions; the
