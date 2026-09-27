@@ -25,6 +25,5 @@ export function draftDecisionContext(refill: {
     ``,
     `[Demo context — production would append: last 3 fill dates, last visit, recent labs, adherence score]`,
   ];
-  return lines.filter((l) => l !== null).join("
-");
+  return lines.filter((l) => l !== null).join("\n");
 }
