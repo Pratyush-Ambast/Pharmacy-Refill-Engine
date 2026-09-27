@@ -1,3 +1,16 @@
-import { NextResponse } from "next/server"; import {getSql} from "@/lib/db/client"; import {canTransition,type State} from "@/lib/core/state-machine"; import {recordTransition} from "@/lib/db/transition"; import {sendERx} from "@/lib/adapters/pharmacy"; import {requireRole} from "@/lib/auth";
-export const dynamic="force-dynamic";
-export async function POST(req:Request,{params}:{params:{id:string}}){try{const id=Number(params.id);const body=await req.json();const to=body.action as State;const note=String(body.note||"").slice(0,500);const user=requireRole();const sql=getSql();const rows=await sql`SELECT * FROM refills WHERE id=${id}`;const refill=rows[0];if(!refill)return NextResponse.json({error:"Refill not found"},{status:404});const check=canTransition(refill.status as State,to,user.role);if(!check.ok)return NextResponse.json({error:check.reason,guardrail:true},{status:409});await recordTransition(id,refill.status,to,user.role,note||null);if(to==="APPROVED"){const rx=await sendERx(refill);await recordTransition(id,"APPROVED","SENT_TO_PHARMACY","system",`eRx transmitted (${rx.rxId}) — adapter simulation`,{rxId:rx.rxId});}return NextResponse.json({ok:true,state:to});}catch(e:any){console.error(e);const status=e.message==="AUTH_REQUIRED"?401:e.message==="FORBIDDEN"?403:e.message?.startsWith("STALE_STATE")?409:500;return NextResponse.json({error:e.message}, {status});}}
+import { NextResponse } from "next/server";
+import { getSql } from "@/lib/db/client";
+import { canTransition, type State } from "@/lib/core/state-machine";
+import { recordTransition } from "@/lib/db/transition";
+import { sendERx } from "@/lib/adapters/pharmacy";
+import { requireRole } from "@/lib/auth";
+export const dynamic = "force-dynamic";
+export async function POST(req: Request,{params}:{params:{id:string}}){
+  try { const user=requireRole(); const id=Number(params.id); const body=await req.json(); const to=body.action as State; const note=String(body.note||"").slice(0,500); const sql=getSql();
+    const rows=await sql`SELECT * FROM refills WHERE id=${id}`; const refill=rows[0]; if(!refill)return NextResponse.json({error:"Refill not found"},{status:404});
+    const check=canTransition(refill.status as State,to,user.role); if(!check.ok)return NextResponse.json({error:check.reason,guardrail:true},{status:409});
+    await recordTransition(id,refill.status,to,user.role,note||null);
+    if(to==="APPROVED"){const rx=await sendERx(refill); await recordTransition(id,"APPROVED","SENT_TO_PHARMACY","system",`eRx transmitted (${rx.rxId}) — mock Surescripts adapter`,{rxId:rx.rxId});}
+    return NextResponse.json({ok:true,state:to});
+  } catch(e:any){console.error("[decision]",e); const status=e.message==="AUTH_REQUIRED"?401:e.message==="FORBIDDEN"?403:e.message?.startsWith("STALE_STATE")?409:500; return NextResponse.json({error:e.message},{status});}
+}

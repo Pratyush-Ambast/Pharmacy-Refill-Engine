@@ -2,6 +2,7 @@
 // GET /api/seed?force=1 — wipe and reseed (demo reset button)
 // One click prepares the entire demo environment on a fresh deploy.
 import { NextResponse } from "next/server";
+import { hashPassword } from "@/lib/auth";
 import { getSql } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
@@ -9,17 +10,27 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const sql = getSql();
-    const force = new URL(req.url).searchParams.get("force") === "1";
-    if (force && req.headers.get("x-seed-secret") !== process.env.CRON_SECRET) return NextResponse.json({ error: "Reset requires x-seed-secret" }, { status: 401 });
-
     await sql`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT true, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
-    await sql`CREATE TABLE IF NOT EXISTS patients (id SERIAL PRIMARY KEY, full_name TEXT NOT NULL, dob TEXT, phone TEXT, is_demo BOOLEAN NOT NULL DEFAULT true, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+    const demoUsers = [["Alex Morgan","staff@demo.local","staff","StaffDemo!2026"],["Dr. Jordan Lee","provider@demo.local","provider","ProviderDemo!2026"]] as const;
+    for (const [name,email,role,password] of demoUsers) { const exists=await sql`SELECT id FROM users WHERE email=${email}`; if(!exists.length) await sql`INSERT INTO users(name,email,role,password_hash) VALUES(${name},${email},${role},${hashPassword(password)})`; }
+    const force = new URL(req.url).searchParams.get("force") === "1";
+    if (force && req.headers.get("x-seed-secret") !== process.env.CRON_SECRET) return NextResponse.json({error:"Reset requires x-seed-secret"},{status:401});
+
     await sql`
       CREATE TABLE IF NOT EXISTS refills (
-        id SERIAL PRIMARY KEY, patient_name TEXT NOT NULL, patient_dob TEXT, medication TEXT, pharmacy TEXT,
-        status TEXT NOT NULL DEFAULT 'TRIAGED', blocker TEXT, confidence REAL, ai_summary TEXT, ai_suggestion TEXT,
-        raw_intake TEXT, patient_phone TEXT, is_demo BOOLEAN NOT NULL DEFAULT true,
-        state_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        id            SERIAL PRIMARY KEY,
+        patient_name  TEXT NOT NULL,
+        patient_dob   TEXT,
+        medication    TEXT,
+        pharmacy      TEXT,
+        status        TEXT NOT NULL DEFAULT 'TRIAGED',
+        blocker       TEXT,
+        confidence    REAL,
+        ai_summary    TEXT,
+        ai_suggestion TEXT,
+        raw_intake    TEXT,
+        state_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `;
     await sql`
@@ -34,23 +45,14 @@ export async function GET(req: Request) {
         created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `;
-    await sql`CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, refill_id INTEGER REFERENCES refills(id), patient_id INTEGER REFERENCES patients(id), channel TEXT NOT NULL DEFAULT 'in_app', status TEXT NOT NULL DEFAULT 'logged', source TEXT NOT NULL, actor TEXT, body TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
-
-    await sql`ALTER TABLE refills ADD COLUMN IF NOT EXISTS patient_phone TEXT`;
-    await sql`ALTER TABLE refills ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT true`;
-    const { hashPassword } = await import("@/lib/auth");
-    const demoUsers = [["Alex Morgan","staff@demo.local","staff","StaffDemo!2026"],["Dr. Jordan Lee","provider@demo.local","provider","ProviderDemo!2026"]] as const;
-    for (const [name,email,role,password] of demoUsers) { const exists = await sql`SELECT id FROM users WHERE email=${email}`; if (!exists.length) await sql`INSERT INTO users(name,email,role,password_hash) VALUES(${name},${email},${role},${hashPassword(password)})`; }
 
     const existing = await sql`SELECT count(*)::int AS n FROM refills`;
     if (existing[0].n > 0 && !force) {
       return NextResponse.json({ ok: true, message: `Already seeded (${existing[0].n} refills). Use ?force=1 to reset.` });
     }
     if (force) {
-      await sql`DELETE FROM notifications`;
       await sql`DELETE FROM events`;
       await sql`DELETE FROM refills`;
-      await sql`DELETE FROM patients`;
       await sql`ALTER SEQUENCE refills_id_seq RESTART WITH 1`;
       await sql`ALTER SEQUENCE events_id_seq RESTART WITH 1`;
     }
@@ -119,10 +121,10 @@ export async function GET(req: Request) {
     for (const d of demo) {
       const rows = await sql`
         INSERT INTO refills
-          (patient_name, medication, pharmacy, status, blocker, confidence, patient_phone, is_demo,
+          (patient_name, medication, pharmacy, status, blocker, confidence,
            ai_summary, ai_suggestion, raw_intake, state_changed_at, created_at)
         VALUES
-          (${d.patient}, ${d.med}, ${d.pharmacy}, ${d.status}, ${d.blocker}, ${d.conf}, null, true,
+          (${d.patient}, ${d.med}, ${d.pharmacy}, ${d.status}, ${d.blocker}, ${d.conf},
            ${d.summary}, ${d.suggestion}, ${d.raw},
            now() - ${d.age}::interval, now() - ${d.age}::interval)
         RETURNING id

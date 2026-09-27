@@ -1,14 +1,14 @@
-// GET /api/cron/verify  (invoked by Vercel Cron every 5 min)
+// GET /api/cron/verify  (invoked by Vercel Cron once per day)
 // The "did it actually happen?" loop:
-//   1. SENT_TO_PHARMACY older than the fill delay → confirm fill → FILLED + SMS
-//   2. Stale states (per state-machine timeouts) → auto-ESCALATED + SMS
+//   1. SENT_TO_PHARMACY older than the fill delay → confirm fill → FILLED
+//   2. Stale states (per state-machine timeouts) → auto-ESCALATED
 // DEMO speed-ups: FILL_DELAY_MINUTES / DEMO_STALE_MINUTES env vars.
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db/client";
 import { staleTimeoutMinutes, type State } from "@/lib/core/state-machine";
 import { recordTransition } from "@/lib/db/transition";
 import { checkFillStatus } from "@/lib/adapters/pharmacy";
-
+import { notifyPatient } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     if (res.filled) {
       await recordTransition(r.id, "SENT_TO_PHARMACY", "FILLED", "system",
         "Pharmacy confirmed fill (mock adapter — production: NCPDP status/webhook)", { rxId: res.rxId });
+      await notifyPatient(r, `${r.medication} is filled and ready for pickup at ${r.pharmacy || "your pharmacy"}.`);
       summary.filled.push(r.id);
     }
   }
@@ -51,6 +52,7 @@ export async function GET(req: Request) {
     for (const r of rows) {
       await recordTransition(r.id, s, "ESCALATED", "system",
         `Auto-escalated: no movement for ${mins} minutes (timeout for ${s})`);
+      await notifyPatient(r, `your ${r.medication} refill needs extra attention — our care team has been alerted.`);
       summary.escalated.push(r.id);
     }
   }
